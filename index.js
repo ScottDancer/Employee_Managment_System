@@ -7,29 +7,38 @@ const mainPrompts = () => {
     name: "choice",
     message: "What would you like to do?",
     choices: [
-      "View All Employees",
-      "View All Employees By Department",
-      "View All Employees By Manager",
-      "Add Employee",
-      "Delete Employee",
-      "Update Employee Role",
-      "Update Employee Manager",
-      "View All Roles",
-      "Add Roles",
-      "Remove Role",
-      "View All Departments",
-      "Add Department",
-      "Remove Department",
-      "Quit"
+      "View All Employees", //Done
+      "View All Employees By Department", //Done
+      "Add Employee", //Done
+      "Update Employee Role", 
+      "View All Roles", //Done
+      "Add Roles", //Done
+      "View All Departments", //Done
+      "Add Department", //Done
+      "Quit" //Done
     ]
   }).then(result => {
     const choice = result.choice
     console.log(result.choice)
 
+    //Add an in statemnt for every prompt
+    //call a unique function for every if statement
     if(choice === "View All Employees"){
       viewAllEmployees()
     } else if(choice === "View All Employees By Department"){
       viewEmployeesByDep()
+    } else if(choice === "Add Employee"){
+      addNewEmployee()
+    } else if (choice === "Update Employee Role"){
+      updateEmployeeRole()
+    } else if (choice === "View All Roles"){
+      viewAllRoles()
+    } else if (choice === "Add Roles"){
+      addNewRole()
+    } else if (choice === "View All Departments"){
+      viewAllDepartments()
+    } else if (choice === "Add Department"){
+      addNewDepartment()
     } else if(choice === "Quit"){
       quit()
     } else {
@@ -48,6 +57,57 @@ const viewAllEmployees = () => {
     })
     .then(() => mainPrompts())
 }
+const viewAllRoles = () => {
+  connection.promise().query(`SELECT * FROM role`)
+    .then(([rows]) => {
+      console.table(rows)
+    })
+    
+    .then(() => mainPrompts())
+}
+const viewAllDepartments = () => {
+  connection.promise().query(`SELECT * FROM department`)
+    .then(([rows]) => {
+      console.table(rows)
+    })
+    .then(() => mainPrompts())
+}
+const updateEmployeeRole = () => {
+  connection.promise().query(`SELECT * FROM employee`)
+    .then(([rows]) => {
+      const employees = rows.map(emp => ({name: `${emp.first_name} ${emp.last_name}`, value: emp.id }))
+      inquirer.prompt({
+        type: "list",
+        name: "emp_id",
+        message: "Which employee do you want to update",
+        choices: employees
+      }).then(result => {
+        let emp_id = result.emp_id
+        connection.promise().query(`SELECT * FROM role`)
+          .then(([rows]) => {
+            const roles = rows.map(role => ({name: role.title, value: role.id }))
+            inquirer.prompt({
+              type: "list",
+              name: "role_id",
+              message: "Which role do you want to update",
+              choices: roles
+            }).then(result => {
+              let role_id = result.role_id
+              connection.promise().query(`UPDATE employee SET role_id = ? WHERE id = ?`, [role_id, emp_id])
+                .then(() => {
+                  console.log("Updated employee's role")
+                  mainPrompts()
+                })
+            })
+          })
+      })
+
+
+
+    })
+
+}
+
 
 const viewEmployeesByDep = () => {
   connection.promise().query(`SELECT department.name, department.id FROM department`)
@@ -76,7 +136,104 @@ const viewEmployeesByDep = () => {
     })
 }
 
+function addNewEmployee(){
+  connection.promise().query(`SELECT role.title, role.id FROM role`)
+  .then(([rows]) => {
+    // console.log(rows)
+    const roles = rows.map(role => ({name: role.title, value: role.id}))
 
+    connection.promise().query(`SELECT employee.first_name, employee.last_name, employee.id FROM employee`)
+      .then(([rows]) => {
+
+        const managers = rows.map(emp => ({name: emp.first_name+" "+emp.last_name, value: emp.id}))
+
+        inquirer.prompt([
+          {
+            type: "input", 
+            name: "first_name",
+            message: "What is the employee's first name?"
+          },
+          {
+            type: "input", 
+            name: "last_name",
+            message: "What is the employee's last name?"
+          },
+          {
+            type: "list", 
+            name: "role_id",
+            message: "What is the employee's role?",
+            choices: roles
+          },
+          {
+            type: "list", 
+            name: "manager_id",
+            message: "Who is this employee's manager?",
+            choices: [...managers, {name: "None", value: null}]
+          }
+        ])
+          .then(result => {
+            connection.promise().query(`INSERT INTO employee SET ?`, result)
+              .then(() => {
+                console.log("Inserted new employee")
+                viewAllEmployees()
+              })
+          })
+      })
+  })
+}
+function addNewRole(){
+  connection.promise().query(`SELECT department.name, department.id FROM department`)
+  .then(([rows]) => {
+    // console.log(rows)
+    const departments = rows.map(dep => ({name: dep.name, value: dep.id}))
+        inquirer.prompt([
+          {
+            type: "input", 
+            name: "title",
+            message: "What is the name of this role?"
+          },
+          {
+            type: "input", 
+            name: "salary",
+            message: "What is the salary for this role?"
+          },
+          {
+            type: "list", 
+            name: "department_id",
+            message: "What is the department for this role?",
+            choices: departments
+          }
+        ])
+          .then(result => {
+            result.salary = parseInt(result.salary)
+            connection.promise().query(`INSERT INTO role SET ?`, result)
+              .then(() => {
+                console.log("Inserted new employee")
+                viewAllRoles()
+              })
+          })
+      })
+  
+}
+function addNewDepartment(){
+
+  inquirer.prompt([
+    {
+      type: "input", 
+      name: "name",
+      message: "What is the name of this department?"
+    }
+  ])
+    .then(result => {
+      connection.promise().query(`INSERT INTO department SET ?`, result)
+        .then(() => {
+          console.log("Inserted new department")
+          viewAllDepartments()
+        })
+    })
+  
+}
+//Make a function for every choice in the first prompt
 
 function quit(){
   console.log("Bye")
